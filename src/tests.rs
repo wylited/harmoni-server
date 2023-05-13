@@ -5,8 +5,7 @@ mod tests {
 
     use axum::{
         body::Body,
-        extract::connect_info::MockConnectInfo,
-        http::{self, Request, StatusCode},
+        http::{Request, StatusCode},
     };
     use std::net::{Ipv4Addr, SocketAddr};
     use futures::{StreamExt, SinkExt};
