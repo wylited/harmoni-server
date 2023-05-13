@@ -22,6 +22,11 @@ async fn main() {
 fn app() -> Router {
     Router::new()
         .route("/echo", get(echo_handler))
+        .route("/api", get(root))
+}
+
+async fn root() -> &'static str {
+    "Hello, Client!"
 }
 
 // A WebSocket handler that echos any message it receives.
