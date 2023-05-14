@@ -2,10 +2,19 @@ use crate::KEYS;
 
 use std::fmt::Display;
 
-use axum::{extract::FromRequestParts, async_trait, http::{request::Parts, StatusCode}, response::{IntoResponse, Response}, Json, RequestPartsExt};
-use axum_extra::{TypedHeader, headers::{Authorization, authorization::Bearer}};
-use jsonwebtoken::{EncodingKey, DecodingKey, decode, Validation, encode, Header};
-use serde::{Serialize, Deserialize};
+use axum::{
+    async_trait,
+    extract::FromRequestParts,
+    http::{request::Parts, StatusCode},
+    response::{IntoResponse, Response},
+    Json, RequestPartsExt,
+};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub struct Keys {
@@ -82,11 +91,13 @@ impl Display for Claims {
 }
 
 #[async_trait]
-impl<S> FromRequestParts<S> for Claims where S: Send + Sync, {
+impl<S> FromRequestParts<S> for Claims
+where
+    S: Send + Sync,
+{
     type Rejection = AuthError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-
         println!("parts: {:?}", parts);
 
         // Extract the token from the authorization header
@@ -105,12 +116,20 @@ impl<S> FromRequestParts<S> for Claims where S: Send + Sync, {
 
 pub async fn authorize(Json(payload): Json<AuthPayload>) -> Result<Json<AuthBody>, AuthError> {
     // Check if the user sent the credentials
-    if payload.client_id.is_empty() || payload.client_secret.is_empty() || payload.username.is_empty() || payload.password.is_empty() {
+    if payload.client_id.is_empty()
+        || payload.client_secret.is_empty()
+        || payload.username.is_empty()
+        || payload.password.is_empty()
+    {
         return Err(AuthError::MissingCredentials);
     }
 
     // replace with proper db call later
-    if payload.client_id != "cid" || payload.client_secret != "csecret" || payload.username != "bob" || payload.password != "pass" {
+    if payload.client_id != "cid"
+        || payload.client_secret != "csecret"
+        || payload.username != "bob"
+        || payload.password != "pass"
+    {
         return Err(AuthError::WrongCredentials);
     }
 

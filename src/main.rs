@@ -1,6 +1,6 @@
-pub mod tests;
 pub mod db;
 pub mod jwtauth;
+pub mod tests;
 
 use anyhow::Result;
 use axum::{
@@ -10,9 +10,9 @@ use axum::{
     },
     response::Response,
     routing::{get, post},
-    Router
+    Router,
 };
-use jwtauth::{Keys, authorize, AuthError, Claims};
+use jwtauth::{authorize, AuthError, Claims, Keys};
 use once_cell::sync::Lazy;
 use tracing::info;
 
@@ -23,22 +23,23 @@ static KEYS: Lazy<Keys> = Lazy::new(|| {
 
 #[derive(Clone)]
 pub struct Db {
-    pub client: edgedb_tokio::Client
+    pub client: edgedb_tokio::Client,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await?;
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
     info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app().await).await?;
     Ok(())
 }
 
 async fn app() -> Router {
-    let db = Db { client: edgedb_tokio::create_client().await.unwrap()};
+    let db = Db {
+        client: edgedb_tokio::create_client().await.unwrap(),
+    };
 
     Router::new()
         .route("/echo", get(echo_handler))
@@ -61,7 +62,11 @@ async fn echo_handler(ws: WebSocketUpgrade) -> Response {
 async fn echo_handle_socket(mut socket: WebSocket) {
     while let Some(Ok(msg)) = socket.recv().await {
         if let Message::Text(msg) = msg {
-            if socket.send(Message::Text(format!("You said: {msg}"))).await.is_err(){
+            if socket
+                .send(Message::Text(format!("You said: {msg}")))
+                .await
+                .is_err()
+            {
                 break;
             }
         }

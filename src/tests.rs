@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod tests {
     use crate::*;
@@ -7,8 +6,8 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
+    use futures::{SinkExt, StreamExt};
     use std::net::{Ipv4Addr, SocketAddr};
-    use futures::{StreamExt, SinkExt};
     use tokio_tungstenite::tungstenite;
     use tower::util::ServiceExt;
 
@@ -23,10 +22,9 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         tokio::spawn(axum::serve(listener, app().await));
 
-        let (mut socket, _response) =
-            tokio_tungstenite::connect_async(format!("ws://{addr}/echo"))
-                .await
-                .unwrap();
+        let (mut socket, _response) = tokio_tungstenite::connect_async(format!("ws://{addr}/echo"))
+            .await
+            .unwrap();
 
         socket
             .send(tungstenite::Message::text("foo"))
