@@ -12,3 +12,14 @@ JWT_SECRET=<secret> cargo r
 ```
 
 ## JWT authentication 
+get the token
+```bash
+set token (curl -s -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data '{"client_id":"cid", "client_secret":"csecret", "username":"bob", "password":"pass"}' http://127.0.0.1:3000/api/authorize | jq -r '.access_token' | sed 's/^/Authorization: Bearer /')
+```
+
+use the token
+```bash
+curl -H $token 127.0.0.1:3000/api/protected
+```
+
+have fun...
