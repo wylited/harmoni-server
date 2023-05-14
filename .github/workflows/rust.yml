@@ -1,4 +1,4 @@
-name: Rust
+name: Build and test 
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       with:
         cli-version: nightly
     - name: init project
-      run: edgedb project init
+      run: edgedb project info
     - name: Build
       run: cargo build --verbose
     - name: Run tests
