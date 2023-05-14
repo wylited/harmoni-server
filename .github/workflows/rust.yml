@@ -19,6 +19,10 @@ jobs:
     - uses: edgedb/setup-edgedb@v1
       with:
         cli-version: nightly
+    - name: Cache cargo compilation
+      uses: actions/cache@v3
+      with:
+        path: ./target
     - name: init project
       run: edgedb project info
     - name: Build
