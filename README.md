@@ -8,5 +8,7 @@ Provides an http api to access the edgedb database for clients as well as takes 
 You will need edgedb cli installed on your machine.
 once you have the database setup you can run the server with the following command:
 ```bash
-cargo r
+JWT_SECRET=<secret> cargo r
 ```
+
+## JWT authentication 

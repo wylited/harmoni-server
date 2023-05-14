@@ -21,7 +21,7 @@ mod tests {
             .unwrap();
 
         let addr = listener.local_addr().unwrap();
-        tokio::spawn(axum::serve(listener, app()));
+        tokio::spawn(axum::serve(listener, app().await));
 
         let (mut socket, _response) =
             tokio_tungstenite::connect_async(format!("ws://{addr}/echo"))
@@ -50,6 +50,7 @@ mod tests {
         // `Router` implements `tower::Service<Request<Body>>` so we can
         // call it like any tower service, no need to run an HTTP server.
         let response = app
+            .await
             .oneshot(Request::builder().uri("/api").body(Body::empty()).unwrap())
             .await
             .unwrap();
