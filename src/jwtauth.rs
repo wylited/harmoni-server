@@ -1,10 +1,10 @@
-use crate::KEYS;
+use crate::{Db, KEYS};
 
 use std::fmt::Display;
 
 use axum::{
     async_trait,
-    extract::FromRequestParts,
+    extract::{FromRequestParts, State},
     http::{request::Parts, StatusCode},
     response::{IntoResponse, Response},
     Json, RequestPartsExt,
@@ -13,7 +13,9 @@ use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use edgedb_derive::Queryable;
+use edgedb_protocol::model::Uuid;
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -33,7 +35,8 @@ impl Keys {
 
 #[derive(Debug)]
 pub enum AuthError {
-    WrongCredentials,
+    WrongClientCredentials,
+    WrongUserCredentials,
     MissingCredentials,
     TokenCreation,
     InvalidToken,
@@ -42,7 +45,10 @@ pub enum AuthError {
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials"),
+            AuthError::WrongClientCredentials => {
+                (StatusCode::UNAUTHORIZED, "Wrong Client credentials")
+            }
+            AuthError::WrongUserCredentials => (StatusCode::UNAUTHORIZED, "Wrong User credentials"),
             AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials"),
             AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
             AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
@@ -69,7 +75,7 @@ impl AuthBody {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Queryable, Debug, Deserialize)]
 pub struct AuthPayload {
     client_id: String,
     client_secret: String,
@@ -80,13 +86,12 @@ pub struct AuthPayload {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     username: String,
-    email: String,
     admin: bool,
 }
 
 impl Display for Claims {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}, {}, {}", self.username, self.email, self.admin)
+        write!(f, "{}, {}", self.username, self.admin)
     }
 }
 
@@ -98,24 +103,46 @@ where
     type Rejection = AuthError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        println!("parts: {:?}", parts);
-
         // Extract the token from the authorization header
         let TypedHeader(Authorization(bearer)) = parts
             .extract::<TypedHeader<Authorization<Bearer>>>()
             .await
             .map_err(|_| AuthError::InvalidToken)?;
 
+        println!("{:?}", bearer.token());
+
         // Decode the user data
-        let token_data = decode::<Claims>(bearer.token(), &KEYS.decoding, &Validation::default())
-            .map_err(|_| AuthError::InvalidToken)?;
+        let token_data = decode::<Claims>(
+            bearer.token(),
+            &KEYS.decoding,
+            &Validation::new(Algorithm::HS256),
+        )
+        .map_err(|_| AuthError::InvalidToken)?;
 
         Ok(token_data.claims)
     }
 }
 
-pub async fn authorize(Json(payload): Json<AuthPayload>) -> Result<Json<AuthBody>, AuthError> {
-    // Check if the user sent the credentials
+#[derive(Queryable, Debug)]
+pub struct Client {
+    id: Uuid,
+    secret: String,
+}
+
+#[derive(Queryable, Deserialize, Serialize, Debug)]
+pub struct User {
+    name: String,
+    email: String,
+    password: String,
+    salt: String,
+}
+
+pub async fn authorize(
+    State(db): State<Db>,
+    Json(payload): Json<AuthPayload>,
+) -> impl IntoResponse {
+    println!("{:?}", payload);
+
     if payload.client_id.is_empty()
         || payload.client_secret.is_empty()
         || payload.username.is_empty()
@@ -124,20 +151,40 @@ pub async fn authorize(Json(payload): Json<AuthPayload>) -> Result<Json<AuthBody
         return Err(AuthError::MissingCredentials);
     }
 
-    // replace with proper db call later
-    if payload.client_id != "cid"
-        || payload.client_secret != "csecret"
-        || payload.username != "bob"
-        || payload.password != "pass"
-    {
-        return Err(AuthError::WrongCredentials);
-    }
+    let client: Option<bool> = db
+        .client
+        .query_single(
+            r#"
+            with client := (select default::Client {
+                secret
+            } filter .id = <std::uuid>$0)
+            select client.secret = <str>$1"#,
+            &(payload.client_id, payload.client_secret),
+        )
+        .await
+        .unwrap();
+
+    let user: Option<bool> = db
+        .client
+        .query_single(
+            r#"
+            with user := select default::User {
+                password,
+            } filter .name = <str>$0
+            select user.password = <str>$1"#,
+            &(payload.username.clone(), payload.password),
+        )
+        .await
+        .unwrap();
+
+    println!("{:?}", client);
+    println!("{:?}", user);
 
     let claims = Claims {
         username: payload.username,
-        email: "bob@123.com".to_string(),
         admin: true,
     };
+
     // Create the authorization token
     let token = encode(&Header::default(), &claims, &KEYS.encoding)
         .map_err(|_| AuthError::TokenCreation)?;

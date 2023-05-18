@@ -44,4 +44,8 @@ module default {
         multi songs: Song;
         multi link users := .<playlists[is User];
     }
+
+    type Client {
+        required secret: str;
+    }
 };

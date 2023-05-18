@@ -12,7 +12,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use jwtauth::{authorize, AuthError, Claims, Keys};
+use jwtauth::{AuthError, Claims, Keys};
 use once_cell::sync::Lazy;
 use tracing::info;
 
@@ -44,7 +44,7 @@ async fn app() -> Router {
     Router::new()
         .route("/echo", get(echo_handler))
         .route("/api", get(root))
-        .route("/api/authorize", post(authorize))
+        .route("/api/authorize", post(jwtauth::authorize))
         .route("/api/protected", get(protected))
         .with_state(db)
 }
